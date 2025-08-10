@@ -1,1 +1,24 @@
 
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'IMAGE_NAME', defaultValue: 'ashu2356/sprintbootservice', description: 'Docker Image Name')
+        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker Image Tag')
+        string(name: 'K8S_NAMESPACE', defaultValue: 'default', description: 'Kubernetes Namespace')
+    }
+
+    stages {
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-file', variable: 'KUBECONFIG_PATH')]) {
+                    sh '''
+                        export KUBECONFIG=$KUBECONFIG_PATH
+                        kubectl set image deployment/veldeploy vel-1=${IMAGE_NAME}:${IMAGE_TAG} -n ${K8S_NAMESPACE} --record
+                        kubectl rollout status deployment/veldeploy -n ${K8S_NAMESPACE}
+                    '''
+                }
+            }
+        }
+    }
+}
