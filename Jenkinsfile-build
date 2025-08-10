@@ -1,1 +1,48 @@
 
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "ashu2356/sprintbootservice"  // Your Docker Hub repo name
+        REGISTRY   = "https://index.docker.io/v1/"
+        SOURCE_REPO = "https://github.com/Ashu2356/SprintBootService-1.git"
+        SOURCE_BRANCH = "main"
+    }
+
+    stages {
+        stage('Checkout Original Repo') {
+            steps {
+                git url: "${SOURCE_REPO}", branch: "${SOURCE_BRANCH}"
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    def tag = "${env.BUILD_NUMBER}"
+                    docker.withRegistry("${env.REGISTRY}", 'dockerhub-creds') {
+                        def img = docker.build("${IMAGE_NAME}:${tag}")
+                        img.push()
+                        img.push('latest')
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            build job: 'deploy-job', parameters: [
+                string(name: 'IMAGE_NAME', value: env.IMAGE_NAME),
+                string(name: 'IMAGE_TAG', value: env.BUILD_NUMBER)
+            ]
+        }
+    }
+}
